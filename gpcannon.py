@@ -61,7 +61,7 @@ def predictive_mean(theta, test_labels):
     alpha = compute_l_and_alpha(theta)[1]
     return np.dot(K_star, alpha)
 
-a = np.linspace(-5, 0, 50)
+a = np.linspace(-8, 0, 50)
 a = 10**a
 taus = np.linspace(-3, 3, 51)
 taus = 10**taus
