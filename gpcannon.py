@@ -63,7 +63,20 @@ def predictive_mean(theta, test_labels):
     alpha = compute_l_and_alpha(theta)[1]
     return np.dot(K_star, alpha)
 
-# Evaluate the likelihood of
+
+# Evaluate the likelihood of a data point given model
+def test_ln_likelihood(label, flux, flux_var, theta, L, alpha):
+    # Calculate the mean prediction.
+    K_star = kernel(theta, label, l, white_noise=False)
+    f_star = np.dot(K_star, alpha)
+
+    # Calculate the variance on the prediction.
+    label_array = np.atleast_2d(label)  # Hack to make kernel work w scalar.
+    pred_var = flux_var + float(kernel(theta, label_array, label_array))
+    pred_var -= np.dot(K_star, cho_solve(L, K_star))
+
+    return -0.5 * ((flux - f_star) ** 2 / pred_var + np.log(pred_var))
+
 
 hyperfn = "best_hyperparams.p"
 if not os.path.exists(hyperfn):
@@ -80,9 +93,17 @@ if not os.path.exists(hyperfn):
     mu = predictive_mean(best_hyperparams, test_labels)
     pl.scatter(l, f, c="k")
     pl.plot(test_labels, mu, "g", lw=2)
-    pl.show()
 
 else:
+    print("loading")
     best_hyperparams = pickle.load(open(hyperfn, "r"))
 
+L, alpha = compute_l_and_alpha(best_hyperparams)
+test_labels = np.linspace(np.min(l), np.max(l), 200)
+lls = [test_ln_likelihood(tl, f[0], var[0], best_hyperparams, L, alpha)
+       for tl in test_labels]
 
+pl.figure()
+pl.plot(test_labels, lls)
+pl.gca().axvline(l[0])
+pl.show()
