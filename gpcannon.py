@@ -16,7 +16,7 @@ f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
 l_all = pickle.load(open("data/tr_label_vals.p", "r"))
 ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
 
-pix = 1385 
+pix = 1383 
 
 f = f_all[:, pix]
 ivar = ivar_all[:, pix]
@@ -100,22 +100,42 @@ else:
     print("loading")
     best_hyperparams = pickle.load(open(hyperfn, "r"))
 
-test_labels = np.zeros((2000,3)) + np.max(l_all, axis=0)[None,:]
-axis = 2 
-test_labels[:,axis] = np.linspace(np.min(l_all[:,axis]), 
-                                  np.max(l_all[:,axis]), 
-                                  len(test_labels[:,axis]))
-mu = predictive_mean(best_hyperparams, test_labels)
-pl.scatter(l_all[:,axis], f, c="k")
-pl.plot(test_labels[:,axis], mu, "g", lw=2)
-pl.show()
-
+# Now optimize over the test label space
+# obj = 0
 (L,flag), alpha = compute_l_and_alpha(best_hyperparams)
-pl.figure()
-for obj in range(0,5):
-    lls = [test_ln_likelihood(test_labels[i,:], f[obj], var[obj], 
-           best_hyperparams, (L,flag), alpha) for i in range(0,len(test_labels))]
-    pl.plot(test_labels[:,axis], lls)
-    pl.gca().axvline(l_all[obj,axis])
-pl.show()
+tll = lambda labels: -test_ln_likelihood(labels, f, var, 
+                                         best_hyperparams, (L,flag), alpha)
+
+p0 = np.array([np.mean(l_all[:,i]) for i in range(l_all.shape[1])])
+bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # from the training set dist
+# blank = np.zeros(1)
+blank = np.zeros(l_all.shape[0])
+# blank = blank.reshape(1,1)
+blank = blank.reshape(l_all.shape[0],1)
+p0_full = blank + p0 # shape (488,3)
+bounds_full = blank[:,:,None] + bounds
+
+print("fitting for labels")
+# want to minimize the negative log likelihood (maximize lnp)
+output = op.minimize(tll, p0_full, method="L-BFGS-B", bounds=bounds_full)
+
+# test_labels = np.zeros((2000,3)) + np.max(l_all, axis=0)[None,:]
+# axis = 2 
+# test_labels[:,axis] = np.linspace(np.min(l_all[:,axis]), 
+#                                   np.max(l_all[:,axis]), 
+#                                   len(test_labels[:,axis]))
+# mu = predictive_mean(best_hyperparams, test_labels)
+# pl.scatter(l_all[:,axis], f, c="k")
+# pl.plot(test_labels[:,axis], mu, "g", lw=2)
+# pl.show()
+
+# (L,flag), alpha = compute_l_and_alpha(best_hyperparams)
+# pl.figure()
+# for obj in range(5,9):
+#     lls = [test_ln_likelihood(test_labels[i,:], f[obj], var[obj], 
+#            best_hyperparams, (L,flag), alpha) for i in range(0,len(test_labels))]
+#     pl.plot(test_labels[:,axis], lls, label="%s"%np.round(l_all[obj,axis],2))
+#     pl.legend()
+#     pl.gca().axvline(l_all[obj,axis])
+# pl.show()
 
