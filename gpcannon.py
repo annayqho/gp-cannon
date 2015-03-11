@@ -16,11 +16,9 @@ f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
 l_all = pickle.load(open("data/tr_label_vals.p", "r"))
 ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
 
-pix = 1383 
-# label = 2
+pix = 1385 
 
 f = f_all[:, pix]
-# l = l_all[:, label]
 ivar = ivar_all[:, pix]
 
 # identify bad pixels. flux == 0 or flux == 1
@@ -31,12 +29,8 @@ l_all = l_all[m,:]
 var = 1./ivar[m]
 
 
-# at this point, the relevant arrays are: f, var, l_all
-
-
 # Covariance function
 def kernel(theta, l_i, l_j, white_noise=True):
-    print(l_i.shape)
     a, tau0, tau1, tau2, s = np.exp(theta)
     K = a**2 * np.exp(-0.5*(((l_i-l_j)[:,:,0])**2/tau0**2 + 
                            ((l_i-l_j)[:,:,1])**2/tau1**2 + 
@@ -44,7 +38,6 @@ def kernel(theta, l_i, l_j, white_noise=True):
     if white_noise:
         K[np.diag_indices_from(K)] += s**2
     return K
-
 
 
 # Calculate alpha
@@ -68,21 +61,24 @@ def ln_likelihood(theta):
 
 # Evaluate the predictive mean
 def predictive_mean(theta, test_labels):
-    K_star = kernel(theta, test_labels[:, None], l_all[None, :], white_noise=False)
+    K_star = kernel(theta, test_labels[:, None], 
+                    l_all[None, :], white_noise=False)
     alpha = compute_l_and_alpha(theta)[1]
-    return np.dot(K_star, alpha)
+    f_star_bar = np.dot(K_star, alpha)
+    return f_star_bar
 
 
 # Evaluate the likelihood of a data point given model
-def test_ln_likelihood(label, flux, flux_var, theta, L, alpha):
+def test_ln_likelihood(label, flux, flux_var, theta, (L,flag), alpha):
     # Calculate the mean prediction.
-    K_star = kernel(theta, label, l_all, white_noise=False)
+    K_star = kernel(theta, label[None,None,:], l_all[None,:,:], 
+                    white_noise=False)
     f_star = np.dot(K_star, alpha)
 
     # Calculate the variance on the prediction.
-    label_array = np.atleast_2d(label)  # Hack to make kernel work w scalar.
+    label_array = np.array(label[None,None,:])  # Hack so kernel works w scalar.
     pred_var = flux_var + float(kernel(theta, label_array, label_array))
-    pred_var -= np.dot(K_star, cho_solve(L, K_star))
+    pred_var -= np.dot(K_star, cho_solve((L,flag), K_star[0]))
 
     return -0.5 * ((flux - f_star) ** 2 / pred_var + np.log(pred_var))
 
@@ -109,24 +105,17 @@ axis = 2
 test_labels[:,axis] = np.linspace(np.min(l_all[:,axis]), 
                                   np.max(l_all[:,axis]), 
                                   len(test_labels[:,axis]))
-print("finding mu")
 mu = predictive_mean(best_hyperparams, test_labels)
 pl.scatter(l_all[:,axis], f, c="k")
 pl.plot(test_labels[:,axis], mu, "g", lw=2)
-
-L, alpha = compute_l_and_alpha(best_hyperparams)
-print("test step")
-lls = [test_ln_likelihood(test_labels[i,:], f[0], var[0], best_hyperparams, 
-       L, alpha) for i in range(0,len(test_labels))]
-
-# lls = [test_ln_likelihood(tl, f[0], var[0], best_hyperparams, L, alpha)
-#       for tl in test_labels]
-
-pl.figure()
-pl.plot(test_labels, lls)
-pl.gca().axvline(l[0])
 pl.show()
 
-# moving to three parameters
-
+(L,flag), alpha = compute_l_and_alpha(best_hyperparams)
+pl.figure()
+for obj in range(0,5):
+    lls = [test_ln_likelihood(test_labels[i,:], f[obj], var[obj], 
+           best_hyperparams, (L,flag), alpha) for i in range(0,len(test_labels))]
+    pl.plot(test_labels[:,axis], lls)
+    pl.gca().axvline(l_all[obj,axis])
+pl.show()
 
