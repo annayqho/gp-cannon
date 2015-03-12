@@ -11,6 +11,7 @@ import matplotlib.pyplot as pl
 from scipy.linalg import cho_factor, cho_solve
 from itertools import product
 import scipy.optimize as op
+from multiprocessing import Pool
 
 LARGE = 100.
 SMALL = 1. / LARGE
@@ -81,16 +82,15 @@ def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
     return sum(ln_likelihoods)
 
 
-def train_single_pix(pix, f_all, ivar_all, l_all):
-    f, var, l = pick_good_obj(pix, f_all, ivar_all, l_all)
-    nll = lambda theta: -ln_likelihood(theta, f, var, l)
+def train_single_pix(f, var, l_all):
+    #print("training pix %s" %pix)
+    nll = lambda theta: -ln_likelihood(theta, f, var, l_all)
     bounds = np.log([(0.001, 0.1), (100, 10000), (0.01, 10), (0.01, 10),
                      (0.0001, 0.1)])
     output = op.minimize(nll, np.log([0.01, 100, 0.1, 0.1, 0.01]), 
                          method="L-BFGS-B", bounds=bounds)
     best_hyperparams = output.x
     print("best hyperparams: ")
-    print(ln_likelihoods[pix])
     print(np.exp(best_hyperparams))
     return best_hyperparams
 
@@ -154,10 +154,9 @@ hyperfn = "best_hyperparams.p"
 if not os.path.exists(hyperfn):
     print("fitting for hyperparams")
     # Optimize for each pixel independently
-    best_hyperparams_all = map(
-            train_single_pix, 
-            
-            (pix, f_all, ivar_all, l_all), np.linspace(0,npix,npix+1))
+    p = Pool(5)
+    t_s_p = lambda f, var: train_single_pix(f, var, l_all)
+    best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
     pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:
@@ -168,8 +167,8 @@ else:
 ##### TEST STEP #####
 
 # Now optimize over the test label space
-obj = 0
-print(infer_labels_single_obj(obj, best_hyperparams, f_all, ivar_all, l_all))
+# obj = 0
+# print(infer_labels_single_obj(obj, best_hyperparams, f_all, ivar_all, l_all))
 
 
 # axis = 2 
