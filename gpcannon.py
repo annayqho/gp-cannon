@@ -12,6 +12,9 @@ from scipy.linalg import cho_factor, cho_solve
 from itertools import product
 import scipy.optimize as op
 
+LARGE = 100.
+SMALL = 1. / LARGE
+
 def kernel(theta, l_i, l_j, white_noise=True):
     a, tau0, tau1, tau2, s = np.exp(theta)
     K = a**2 * np.exp(-0.5*(((l_i-l_j)[:,:,0])**2/tau0**2 + 
@@ -121,24 +124,36 @@ def infer_labels_single_obj(obj, hyperparams_all, f_all, var_all, l_all):
     return output
 
 
+##### READ IN APOGEE SPECTRA #####
+
 f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
 l_all = pickle.load(open("data/tr_label_vals.p", "r"))
 ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
 
-# "bad" pixels are those with var == 0 
+# gap pixels are those with flux variance over objects == 0 
 keep = np.var(f_all, axis=0) > 0
 f_all = f_all[:,keep]
 ivar_all = ivar_all[:,keep]
-
+nobj = f_all.shape[0]
 npix = f_all.shape[1]
 
-# Covariance function
+# subtract the weighted average (to ignore bad pixels) off flux
+# construct a variance array
+var_all = np.zeros(ivar_all.shape)
+for pix in range(npix):
+    f = f_all[:,pix]
+    ivar = ivar_all[:,pix]
+    var_all[:,pix] = 1./ivar
+    f -= np.average(f, weights=ivar)
+    f_all[:,pix] = f
+
+
+##### TRAINING STEP #####
 
 hyperfn = "best_hyperparams.p"
 if not os.path.exists(hyperfn):
     print("fitting for hyperparams")
     # Optimize for each pixel independently
-    npix = f_all.shape[1]
     best_hyperparams_all = map(
             train_single_pix, 
             
@@ -148,6 +163,7 @@ if not os.path.exists(hyperfn):
 else:
     print("loading")
     best_hyperparams = pickle.load(open(hyperfn, "r"))
+
 
 ##### TEST STEP #####
 
