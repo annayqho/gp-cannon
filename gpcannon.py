@@ -101,23 +101,17 @@ else:
     best_hyperparams = pickle.load(open(hyperfn, "r"))
 
 # Now optimize over the test label space
-# obj = 0
+obj = 0
 (L,flag), alpha = compute_l_and_alpha(best_hyperparams)
-tll = lambda labels: -test_ln_likelihood(labels, f, var, 
+tll = lambda labels: -test_ln_likelihood(labels, f[obj], var[obj], 
                                          best_hyperparams, (L,flag), alpha)
 
 p0 = np.array([np.mean(l_all[:,i]) for i in range(l_all.shape[1])])
-bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # from the training set dist
-# blank = np.zeros(1)
-blank = np.zeros(l_all.shape[0])
-# blank = blank.reshape(1,1)
-blank = blank.reshape(l_all.shape[0],1)
-p0_full = blank + p0 # shape (488,3)
-bounds_full = blank[:,:,None] + bounds
+bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # training set dist
 
 print("fitting for labels")
 # want to minimize the negative log likelihood (maximize lnp)
-output = op.minimize(tll, p0_full, method="L-BFGS-B", bounds=bounds_full)
+output = op.minimize(tll, p0, method="L-BFGS-B", bounds=bounds)
 
 # test_labels = np.zeros((2000,3)) + np.max(l_all, axis=0)[None,:]
 # axis = 2 
