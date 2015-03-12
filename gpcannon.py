@@ -154,7 +154,7 @@ hyperfn = "best_hyperparams.p"
 if not os.path.exists(hyperfn):
     print("fitting for hyperparams")
     # Optimize for each pixel independently
-    p = Pool(5)
+    p = Pool()
     t_s_p = lambda f, var: train_single_pix(f, var, l_all)
     best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
     pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
