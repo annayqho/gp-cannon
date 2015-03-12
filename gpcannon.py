@@ -78,25 +78,12 @@ def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
     return sum(ln_likelihoods)
 
 
-def pick_good_obj(pix, f_all, ivar_all, l_all):
-    f = f_all[:, pix]
-    ivar = ivar_all[:, pix]
-
-    # this pixel is bad for the following objects: flux == 0 or flux == 1
-    m = np.logical_and(f != 0.0, f != 1.0)
-    f = f[m]
-    f -= np.mean(f)
-    l = l_all[m,:]
-    var = 1./ivar[m]
-    return f,var,l
-
-
 def train_single_pix(pix, f_all, ivar_all, l_all):
     f, var, l = pick_good_obj(pix, f_all, ivar_all, l_all)
     nll = lambda theta: -ln_likelihood(theta, f, var, l)
     bounds = np.log([(0.001, 0.1), (100, 10000), (0.01, 10), (0.01, 10),
                      (0.0001, 0.1)])
-    output = op.minimize(nll, np.log([0.01, 100, 0.5, 0.05, 0.01]), 
+    output = op.minimize(nll, np.log([0.01, 100, 0.1, 0.1, 0.01]), 
                          method="L-BFGS-B", bounds=bounds)
     best_hyperparams = output.x
     print("best hyperparams: ")
@@ -153,7 +140,9 @@ if not os.path.exists(hyperfn):
     # Optimize for each pixel independently
     npix = f_all.shape[1]
     best_hyperparams_all = map(
-            train_single_pix(pix, f_all, ivar_all, l_all), np.linspace(0,npix,npix+1))
+            train_single_pix, 
+            
+            (pix, f_all, ivar_all, l_all), np.linspace(0,npix,npix+1))
     pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:
