@@ -66,11 +66,11 @@ def test_ln_likelihood_single_pix(label, flux, flux_var, theta, (L,flag), alpha,
 
 
 def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
-    print(label)
+    #print(label)
     npix = len(f)
-    npix = 150
+    npix = 10 
     ln_likelihoods = np.zeros(npix)
-    for pix in range(npix):
+    for pix in range(100,npix):
         (L,flag), alpha = compute_l_and_alpha(
                 theta_all[pix,:], f_all[:,pix], var_all[:,pix], l_all)
         ln_likelihoods[pix] = test_ln_likelihood_single_pix(
@@ -127,6 +127,7 @@ def infer_labels_single_obj(obj, hyperparams_all, f_all, var_all, l_all):
     tll = lambda labels: -test_ln_likelihood(
             labels, f, var, hyperparams_all, f_all, var_all, l_all)
     p0 = np.array([np.mean(l_all[:,i]) for i in range(l_all.shape[1])])
+    #p0 = l_all[obj,:]
     bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # training set dist
     print("fitting for labels")
     output = op.minimize(tll, p0, method="L-BFGS-B", bounds=bounds)
@@ -151,10 +152,8 @@ if not os.path.exists(hyperfn):
     print("fitting for hyperparams")
     # Optimize for each pixel independently
     npix = f_all.shape[1]
-    best_hyperparams_all = np.zeros((npix, 5))
-    for pix in range(npix):
-        print("training on pixel " + str(pix))
-        best_hyperparams_all[pix,:] = train_single_pix(pix, f_all, ivar_all, l_all) 
+    best_hyperparams_all = map(
+            train_single_pix(pix, f_all, ivar_all, l_all), np.linspace(0,npix,npix+1))
     pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:
