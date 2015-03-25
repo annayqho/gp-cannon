@@ -16,6 +16,31 @@ from multiprocessing import Pool
 LARGE = 100.
 SMALL = 1. / LARGE
 
+##### READ IN APOGEE SPECTRA #####
+
+f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
+l_all = pickle.load(open("data/tr_label_vals.p", "r"))
+ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
+
+# gap pixels are those with flux variance over objects == 0 
+keep = np.var(f_all, axis=0) > 0
+f_all = f_all[:,keep]
+ivar_all = ivar_all[:,keep]
+nobj = f_all.shape[0]
+npix = f_all.shape[1]
+
+# subtract the weighted average (to ignore bad pixels) off flux
+# construct a variance array
+var_all = np.zeros(ivar_all.shape)
+for pix in range(npix):
+    f = f_all[:,pix]
+    ivar = ivar_all[:,pix]
+    var_all[:,pix] = 1./ivar
+    f -= np.average(f, weights=ivar)
+    f_all[:,pix] = f
+
+
+
 def kernel(theta, l_i, l_j, white_noise=True):
     a, tau0, tau1, tau2, s = np.exp(theta)
     K = a**2 * np.exp(-0.5*(((l_i-l_j)[:,:,0])**2/tau0**2 + 
@@ -83,7 +108,9 @@ def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
 
 
 def train_single_pix(param):
-    f, var, l_all = param
+    print("training pix") 
+    f, var = param
+    # l_all, f, var = param
     #print("training pix %s" %pix)
     nll = lambda theta: -ln_likelihood(theta, f, var, l_all)
     bounds = np.log([(0.001, 0.1), (100, 10000), (0.01, 10), (0.01, 10),
@@ -91,8 +118,8 @@ def train_single_pix(param):
     output = op.minimize(nll, np.log([0.01, 100, 0.1, 0.1, 0.01]), 
                          method="L-BFGS-B", bounds=bounds)
     best_hyperparams = output.x
-    # print("best hyperparams: ")
-    # print(np.exp(best_hyperparams))
+    print("best hyperparams: ")
+    print(np.exp(best_hyperparams))
     return best_hyperparams
 
 
@@ -125,30 +152,6 @@ def infer_labels_single_obj(obj, hyperparams_all, f_all, var_all, l_all):
     return output
 
 
-##### READ IN APOGEE SPECTRA #####
-
-f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
-l_all = pickle.load(open("data/tr_label_vals.p", "r"))
-ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
-
-# gap pixels are those with flux variance over objects == 0 
-keep = np.var(f_all, axis=0) > 0
-f_all = f_all[:,keep]
-ivar_all = ivar_all[:,keep]
-nobj = f_all.shape[0]
-npix = f_all.shape[1]
-
-# subtract the weighted average (to ignore bad pixels) off flux
-# construct a variance array
-var_all = np.zeros(ivar_all.shape)
-for pix in range(npix):
-    f = f_all[:,pix]
-    ivar = ivar_all[:,pix]
-    var_all[:,pix] = 1./ivar
-    f -= np.average(f, weights=ivar)
-    f_all[:,pix] = f
-
-
 ##### TRAINING STEP #####
 
 hyperfn = "best_hyperparams.p"
@@ -158,18 +161,22 @@ if not os.path.exists(hyperfn):
     # start 4 workers
     pool = Pool(processes=4)
 
+    # Dan's fix:
+    # t_s_p = lambda args: train_single_pix(l_all, *args)
+    # (remember to change train_single_pix function)
+    best_hyperparams_all = pool.map(train_single_pix, zip(f_all.T, var_all.T))
+
+    # Brani's fix:
     # pack parameters
-    params = [(f, var, l_all) for f, var in zip(f_all.T, var_all.T)]
-    it = pool.imap(train_single_pix, params, chunksize=10)
-    for cnt, res in enumerate(it):
-        print(res)
+    # params = [(f, var, l_all) for f, var in zip(f_all.T, var_all.T)]
+    # best_hyperparams_all = pool.imap(train_single_pix, params, chunksize=10)
 
     # kill workers
-    pool.terminate()
+    # pool.terminate()
 
     # t_s_p = lambda f, var: train_single_pix(f, var, l_all)
     # best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
-    pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
+    # pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:
     print("loading")

@@ -1,4 +1,5 @@
 \documentclass[12pt, preprint]{aastex}
+\usepackage{bm, graphicx, subfigure, amsmath, morefloats}
 \bibliographystyle{apj}
 
 % naming macros
@@ -108,24 +109,134 @@ different functional dependencies on labels: for example, one might expect a
 continuum pixel to be linear, while a pixel in a magnesium line should show 
 polynomial (?) dependence on temperature. In particular, absorption features,
 particularly strong lines, are known to vary non-linearly as a function of 
-stellar labels. 
+stellar labels. Systematic discrepencies were found. Previously, we had to 
+settle on a suitable functional form for the spectral model. Now, we don't have
+to settle on a functional form: we allow the fitting process to optimize and
+identify the functional form in a data-driven way.
 
-%\section{Data}
+We needed to pick a functional form for the spectral model, which we did
+through empirical experimentation with a particular dataset. Indeed, the
+polynomial family is probably not the best family of functions to be 
+exploring, since they extrapolate badly (edge effects) and require explicit, 
+qualitative choices about order and cross-terms. In that paper, we mentioned 
+the hope to eventually move to a non-parametric form for the functions, such 
+as Gaussian Processes. In this case, model complexity would be controlled by 
+continuous parameters and the functional form would become very complex at 
+the pixels where the data in the training step warrant it.
 
-%\subsection{Something} 
+Extending \emph{The Cannon} to a Gaussian process framework entails fitting 
+for a Gaussian process model at every pixel, which actually means optimizing 
+for the \emph{functional form} of the model at every pixel instead of simply 
+optimizing for parameters that specify one functional form.
 
-%\section{Results}
+Learning a function from examples. Stochastic processes: the generalization 
+of a probability distribution (a finite-dimensional random variable) to 
+functions. Regression: input-output mapping (learning) for continuous inputs. 
+It's an inductive problem: you want to move from points you know, to points 
+you don't know\ldotsfrom finite training data to a function that makes 
+predictions for all possible input values.
 
-%\section{Discussion}
+Obviously you have to make some assumptions about the characteristics of the 
+underlying function. What you do is: assign a prior probability to every 
+possible function (essentially, you specify a probability distribution over 
+functions themselves) The key is: if you consider such a stochastic process 
+function (i.e. a function governed by a Gaussian distribution\ldots) then if 
+you only work with its values at a finite number of points, you'll get the 
+same answer as if you were dealing with all of the points.
 
-%\section{Acknowledgements}
+So, one big bonus is computational tractability.
 
-%AYQH was partially supported by a Fulbright grant through the German-American
-%Fulbright Commission.
+You begin with a prior distribution on the functions. And at the end you get 
+a mean prediction and a posterior distribution.
 
-%The research has received funding from the European Research Council under the
-%European Union's Seventh Framework Programme (FP 7) ERC Grant Agreement n.
-%[321035].
+Basically, you do inference directly in function space.
+
+A Gaussian Process IS a distribution over functions. The distribution is 
+specified by the covariance function. More formally, a Gaussian Process 
+is a collection of random variables, any finite number of which have a 
+joint Gaussian distribution.
+
+A Gaussian Process is completely specified by a mean function and covariance 
+function.
+
+We still have a training step and a test step. Below we walk through what it 
+means to cast each step into the Gaussian Process framework.
+
+\section{\emph{The Cannon} Training Step in the Gaussian Process Framework}
+
+For each pixel, we optimize for a set of five hyperparameters that fully 
+describe the covariance matrix that characterizes the Gaussian process model.
+
+We must begin by selecting the functional form of the covariance between any 
+two outputs (in this case, between any two flux values in a spectrum, across 
+the label space). We choose a squared exponential covariance function. 
+For any pair of flux values, the covariance across 3D label space is,
+
+\begin{equation}
+  \theta = a, \tau_0, \tau_1, \tau_2, s
+\end{equation}
+
+\begin{equation}
+  K = a^2 \exp(-\frac{1}{2} \sum_{n=1}^3 \frac{(l_{ni}-l_{nj})^2}{\tau_n^2}) +
+  \delta_{ij} s^2
+
+
+Note a few things. First, the covariance between outputs is a function of the 
+input labels. Second, this covariance approaches unity as the points become 
+closer together in label space and becomes smaller as the distance between 
+the points increases. Thus the variable $\tau$ can informally be thought of 
+as a length scale over which flux values become more ``different`` or contain 
+less information about each other.
+
+In a nutshell, we optimize by maximizing the log marginal likelihood for a 
+single pixel across all objects. The mathematics of how to do so is laid out 
+below\ldots
+
+% (L, flag), alpha = compute_l_and_alpha(theta, f, var, l_all)
+% K = kernel(theta, l_all[:, None], l_all[None, :])
+% add in the uncertainties from the flux to the kernel
+% K[np.diag_indices_from(K)] += var
+% L, flag = cho_factor(K, overwrite_a=True)
+
+% lndet = np.sum(np.log(np.diag(L)))
+% ln_likelihood = -0.5*np.dot(f, alpha)-lndet
+
+\section{\emph{The Cannon} Test Step in the Gaussian Process Framework}
+
+While the training step took place across pixel space, optimizing for 
+hyperparameters across objects at each pixel independently, the test step 
+will take place across object space, optimizing for labels across pixels at 
+each object independently.
+
+Now, we have a set of $(n_{obj}, n_{l})$ hyperparameters where $n_{obj}$ is 
+the number of training objects and $n_{l}$ is the number of training labels 
+describing each object.
+
+We write a test log likelihood function that optimizes over the full pixel 
+and 3D label space in order to determine, for a particular object, which 
+combination of labels is most likely given the measured flux at that pixel.
+
+\section{Results: Comparison with Quadratic Model}
+
+Hopefully we find that it's a hell of a lot better!
+
+\section{Discussion}
+
+One challenge is the computational time. Much slower than simply choosing 
+a quadratic model. Whereas that took this much time, the training steps scales 
+with the cube of the number of training objects. In this case, it took 20 
+hours on a 4-core processor, with the operations running in parallel (all 
+pixels are independent.) Similarly, labels for the test objects can be 
+evaluated in parallel, and the test step took X hours on a 4-core processor. 
+
+\section{Acknowledgements}
+
+AYQH was partially supported by a Fulbright grant through the German-American
+Fulbright Commission.
+
+The research has received funding from the European Research Council under the
+European Union's Seventh Framework Programme (FP 7) ERC Grant Agreement n.
+[321035].
 
 %\begin{thebibliography}{24}
 
