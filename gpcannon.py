@@ -82,7 +82,8 @@ def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
     return sum(ln_likelihoods)
 
 
-def train_single_pix(f, var, l_all):
+def train_single_pix(param):
+    f, var, l_all = param
     #print("training pix %s" %pix)
     nll = lambda theta: -ln_likelihood(theta, f, var, l_all)
     bounds = np.log([(0.001, 0.1), (100, 10000), (0.01, 10), (0.01, 10),
@@ -90,8 +91,8 @@ def train_single_pix(f, var, l_all):
     output = op.minimize(nll, np.log([0.01, 100, 0.1, 0.1, 0.01]), 
                          method="L-BFGS-B", bounds=bounds)
     best_hyperparams = output.x
-    print("best hyperparams: ")
-    print(np.exp(best_hyperparams))
+    # print("best hyperparams: ")
+    # print(np.exp(best_hyperparams))
     return best_hyperparams
 
 
@@ -154,9 +155,20 @@ hyperfn = "best_hyperparams.p"
 if not os.path.exists(hyperfn):
     print("fitting for hyperparams")
     # Optimize for each pixel independently
-    p = Pool()
-    t_s_p = lambda f, var: train_single_pix(f, var, l_all)
-    best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
+    # start 4 workers
+    pool = Pool(processes=4)
+
+    # pack parameters
+    params = [(f, var, l_all) for f, var in zip(f_all.T, var_all.T)]
+    it = pool.imap(train_single_pix, params, chunksize=10)
+    for cnt, res in enumerate(it):
+        print(res)
+
+    # kill workers
+    pool.terminate()
+
+    # t_s_p = lambda f, var: train_single_pix(f, var, l_all)
+    # best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
     pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:

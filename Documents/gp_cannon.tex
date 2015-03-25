@@ -5,9 +5,28 @@
 \newcommand{\tc}{\textsl{The~Cannon}}
 \newcommand{\apogee}{\textsl{APOGEE}}
 
+% math and symbol macros
+\newcommand{\set}[1]{\bm{#1}}
+\newcommand{\starlabel}{\ell}
+\newcommand{\starlabelvec}{\set{\starlabel}}
+\newcommand{\mean}[1]{\overline{#1}}
+\newcommand{\given}{\,|\,}
+\newcommand{\teff}{\mbox{$\rm T_{eff}$}}
+\newcommand{\kms}{\mbox{$\rm kms^{-1}$}}
+\newcommand{\feh}{\mbox{$\rm [Fe/H]$}}
+\newcommand{\xfe}{\mbox{$\rm [X/Fe]$}}
+\newcommand{\alphafe}{\mbox{$\rm [\alpha/Fe]$}}
+\newcommand{\mh}{\mbox{$\rm [M/H]$}}
+\newcommand{\logg}{\mbox{$\rm \log g$}}
+\newcommand{\noise}{\sigma_{n\lambda}}
+\newcommand{\scatter}{s_{\lambda}}
+\newcommand{\pix}{\mathrm{pix}}
+\newcommand{\rfn}{\mathrm{ref}}
+
 \begin{document}
 
-\title{\tc\ with a Gaussian Process Model}
+\title{\tc\ in the Gaussian Process Framework: \\ Data-driven spectral
+model determination}
 \author{A.Y.Q.~Ho\altaffilmark{1},
 D.~Foreman-Mackey\altaffilmark{2},
 David~W.~Hogg\altaffilmark{1,2,3}, 
@@ -23,13 +42,73 @@ New York University, 4 Washington Pl., room 424, New York, NY, 10003, USA}
 
 \begin{abstract}
 
-This is the abstract.
+\tc is a data-driven method for determining stellar labels (parameters and 
+abundances) from stellar
+spectra in the context of vast spectroscopic surveys. Arguably the most 
+exciting long-term prospect of \tc is its potential to bring qualitatively
+different stellar surveys onto a conssitent stellar parameter and chemical
+abundance scale, given a set of reference objects observed in common between
+the surveys. In the current framework, a model is fit for that describes
+how the flux in each pixel of a continuum-normalized spectrum depends
+on the labels of the star. However, a major limitation is the need to select
+a spectral model that governs all pixels in the spectrum. In the paper,
+the functional form of this model was taken to be quadratic in the labels, 
+determined simply through empirical experimentation. A unique set of 
+coefficients is determined for each pixel, but the functional form of the 
+model is held fixed across pixels. This is, however, not physically motivated:
+that model is known to be too flexible for some pixels and too inflexible 
+for others. In the Gaussian Process framework, instead of specifying the
+functional form of the spectral model, we specify the functional form of the
+Gaussian Process model, which in turns optimizes directly for the functional
+form of the spectral model.
 
 \end{abstract}
 
 \keywords{}
 
 \section{Introduction}
+
+\tc is a data-driven method for determining stellar labels (parameters and 
+abundances) from stellar
+spectra in the context of vast spectroscopic surveys. Arguably the most
+exciting long-term prospect of \tc is its potential to bring qualitatively
+different stellar surveys onto a conssitent stellar parameter and chemical
+abundance scale, given a set of reference objects observed in common between
+the surveys. In the current framework, a model is fit for that describes
+how the flux in each pixel of a continuum-normalized spectrum depends
+on the labels of the star.
+
+A major limitation of this existing framework is that the functional form of 
+the model is restricted to being the same for each pixel. We took the 
+spectral model to be characterized by a coefficient vector $\theta_\lambda$ 
+that allowed us to predict the flux at every pixel $f_{n \lambda}$ for a 
+given label vector $\textbf{l}_n$:
+
+\begin{equation}
+  f_{n\lambda} = g(\starlabelvec_n | \set{\theta}_\lambda) + \mbox{noise} 
+\end{equation}
+
+\begin{equation}
+  f_{n\lambda} = \set{\theta}_\lambda^T \cdot \starlabelvec_n + \mbox{noise}  
+\end{equation}
+
+In this case, we optimize for coefficients of a model that is quadratic in the
+labels, such that the label vector is,
+
+\begin{equation}
+  \starlabelvec_n \equiv 
+  [1, \teff, \logg, \feh, \teff^2, \teff\cdot\logg, \teff\cdot\feh, \logg^2, \logg\cdot\feh, \feh^2]
+\end{equation}
+
+A major limitation of this existing framework is that the model is inflexible:
+although a set of coefficients is uniquely determined for each pixel, 
+the functional form of the model itself is held fixed across pixels. 
+This is, however, not physically motivated.  Different pixels should have 
+different functional dependencies on labels: for example, one might expect a 
+continuum pixel to be linear, while a pixel in a magnesium line should show 
+polynomial (?) dependence on temperature. In particular, absorption features,
+particularly strong lines, are known to vary non-linearly as a function of 
+stellar labels. 
 
 %\section{Data}
 
