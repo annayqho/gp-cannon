@@ -30,8 +30,8 @@
 model determination}
 \author{A.Y.Q.~Ho\altaffilmark{1},
 D.~Foreman-Mackey\altaffilmark{2},
-David~W.~Hogg\altaffilmark{1,2,3}, 
 M.~Ness\altaffilmark{1},
+David~W.~Hogg\altaffilmark{1,2,3}, 
 H.-W.~Rix\altaffilmark{1}
 }
 \altaffiltext{1}{Max-Planck-Institut f\"ur Astronomie, K\"onigstuhl 17, D-69117 Heidelberg, Germany}
@@ -43,29 +43,36 @@ New York University, 4 Washington Pl., room 424, New York, NY, 10003, USA}
 
 \begin{abstract}
 
-\tc is a data-driven method for determining stellar labels (parameters and 
-abundances) from stellar
-spectra in the context of vast spectroscopic surveys. Arguably the most 
-exciting long-term prospect of \tc is its potential to bring qualitatively
-different stellar surveys onto a conssitent stellar parameter and chemical
-abundance scale, given a set of reference objects observed in common between
-the surveys. In the current framework, a model is fit for that describes
-how the flux in each pixel of a continuum-normalized spectrum depends
-on the labels of the star. However, a major limitation is the need to select
-a spectral model that governs all pixels in the spectrum. In the paper,
-the functional form of this model was taken to be quadratic in the labels, 
-determined simply through empirical experimentation. A unique set of 
-coefficients is determined for each pixel, but the functional form of the 
-model is held fixed across pixels. This is, however, not physically motivated:
-that model is known to be too flexible for some pixels and too inflexible 
-for others. In the Gaussian Process framework, instead of specifying the
-functional form of the spectral model, we specify the functional form of the
-Gaussian Process model, which in turns optimizes directly for the functional
-form of the spectral model.
+\tc\ is a data-driven method for determining stellar labels (parameters and 
+abundances) from stellar spectra in the context of vast spectroscopic surveys. 
+For a ``training set'' of stars with known labels, \tc\ fits for a spectral 
+model that describes how the flux in each pixel of the spectrum depends on the 
+labels of the star. The model is then applied to the rest of the stars in the 
+survey to solve for their labels. 
+In the first iteration of \tc\ (Ness et al. 2015) the functional form of the 
+spectral model was determined through empirical experimentation and held fixed
+across the spectrum: only the coefficients varied between pixels. 
+This constitutes a severe limitation: the functional form of the model is too 
+flexible for some pixels 
+not flexible enough for others. In this paper, we cast \tc\ into the framework
+of a Gaussian Process. In this framework, instead of optimizing for 
+coefficients of a fixed spectral model at each pixel, we optimize for the
+functional form of the spectral model at each pixel. 
 
 \end{abstract}
 
-\keywords{}
+\keywords{
+methods: data analysis
+---
+methods: statistical
+---
+stars:abundances
+---
+stars: fundamental parameters
+---
+surveys
+---
+techniques: spectroscopic}
 
 \section{Introduction}
 
@@ -73,7 +80,7 @@ form of the spectral model.
 abundances) from stellar
 spectra in the context of vast spectroscopic surveys. Arguably the most
 exciting long-term prospect of \tc is its potential to bring qualitatively
-different stellar surveys onto a conssitent stellar parameter and chemical
+different stellar surveys onto a consistent stellar parameter and chemical
 abundance scale, given a set of reference objects observed in common between
 the surveys. In the current framework, a model is fit for that describes
 how the flux in each pixel of a continuum-normalized spectrum depends
@@ -170,7 +177,22 @@ describe the covariance matrix that characterizes the Gaussian process model.
 We must begin by selecting the functional form of the covariance between any 
 two outputs (in this case, between any two flux values in a spectrum, across 
 the label space). We choose a squared exponential covariance function. 
-For any pair of flux values, the covariance across 3D label space is,
+
+For a set of $N_{ref}$ reference objects $n$, each has a continuum-normalized
+flux measurement $f_{n \lambda}$ at wavelength $\lambda$. 
+
+Each training star has $K$ labels $l_{nk}$ 
+Say we have a set of $n$ stars, each with $k$ training labels 
+$l = l_{n1}, l_{n2}, \cdots, l_{nk}$.
+
+For any given star, the covariance between any pair of flux values 
+$ f_{n \lambda_i}$ and $f_{n \lambda_j}$, the 
+covariance across 3D label space is
+
+\begin{equation}
+  Cov(f_{n \lambda_i}, f_{n \lambda_j}) = a^2 \exp(-\frac{1}{2} \sum_{k=1}^K \frac{(l_{ni}-l_{nj})^2}{\tau_n^2}) +
+  \delta_{ij} s^2
+\end{equation}
 
 \begin{equation}
   \theta = a, \tau_0, \tau_1, \tau_2, s
@@ -179,7 +201,7 @@ For any pair of flux values, the covariance across 3D label space is,
 \begin{equation}
   K = a^2 \exp(-\frac{1}{2} \sum_{n=1}^3 \frac{(l_{ni}-l_{nj})^2}{\tau_n^2}) +
   \delta_{ij} s^2
-
+\end{equation}
 
 Note a few things. First, the covariance between outputs is a function of the 
 input labels. Second, this covariance approaches unity as the points become 
