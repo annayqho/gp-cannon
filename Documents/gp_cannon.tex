@@ -178,29 +178,23 @@ We must begin by selecting the functional form of the covariance between any
 two outputs (in this case, between any two flux values in a spectrum, across 
 the label space). We choose a squared exponential covariance function. 
 
-For a set of $N_{ref}$ reference objects $n$, each has a continuum-normalized
+For a set of $N_{ref}$ reference objects $n_1, n_2, \dots, n_{N_{ref}}$, 
+each has a continuum-normalized
 flux measurement $f_{n \lambda}$ at wavelength $\lambda$. 
 
 Each training star has $K$ labels $l_{nk}$ 
-Say we have a set of $n$ stars, each with $k$ training labels 
-$l = l_{n1}, l_{n2}, \cdots, l_{nk}$.
+Say we have a set of $N_{ref}$ training objects, each with $k$ training labels 
+$l = l_{nk_1}, l_{nk_2}, \cdots, l_{nk_K}$.
 
-For any given star, the covariance between any pair of flux values 
-$ f_{n \lambda_i}$ and $f_{n \lambda_j}$, the 
-covariance across 3D label space is
-
-\begin{equation}
-  Cov(f_{n \lambda_i}, f_{n \lambda_j}) = a^2 \exp(-\frac{1}{2} \sum_{k=1}^K \frac{(l_{ni}-l_{nj})^2}{\tau_n^2}) +
-  \delta_{ij} s^2
-\end{equation}
+At any given pixel, the covariance between any pair of flux values for two
+stars $n_i$ and $n_j$ with label sets $l_{n_i k}$ and $l_{n_j k}$, 
+$ f_{n_i \lambda}$ and $f_{n_j \lambda}$ across label space is: 
 
 \begin{equation}
-  \theta = a, \tau_0, \tau_1, \tau_2, s
-\end{equation}
-
-\begin{equation}
-  K = a^2 \exp(-\frac{1}{2} \sum_{n=1}^3 \frac{(l_{ni}-l_{nj})^2}{\tau_n^2}) +
-  \delta_{ij} s^2
+  Cov(f_{n_i \lambda}, f_{n_j \lambda}) = 
+  a_\lambda^2 \exp(-\frac{1}{2} 
+  \sum_{k=1}^K \frac{(l_{n_i k}-l_{n_j k})^2}{\tau_{\lambda k}^2}) +
+  \delta_{ij} s_\lambda^2
 \end{equation}
 
 Note a few things. First, the covariance between outputs is a function of the 
@@ -210,9 +204,30 @@ the points increases. Thus the variable $\tau$ can informally be thought of
 as a length scale over which flux values become more ``different`` or contain 
 less information about each other.
 
+In this equation, the pixel-dependent values $a, \tau_k, $ and $s$ constitute
+a set of hyperparameters $\theta$ that determine a Gaussian process model. Thus, 
+each pixel has its own Gaussian process model characterized by hyperparameters,
+the number of which depends on the number of labels. For three labels, then,
+the set of hyperparameters at a given pixel would look like this:
+
+\begin{equation}
+  \theta_\lambda = a_\lambda, 
+  \tau_{\lambda 0}, \tau_{\lambda 1}, \tau_{\lambda 2}, s_\lambda
+\end{equation}
+
 In a nutshell, we optimize by maximizing the log marginal likelihood for a 
 single pixel across all objects. The mathematics of how to do so is laid out 
 below\ldots
+
+The log marginal likelihood is
+
+\begin{equation}
+  \ln{p}(f_{n \lambda} | \theta_\lambda) = \sum \ln{L_{ii}}
+\end{equation}
+
+where
+
+\beq
 
 % (L, flag), alpha = compute_l_and_alpha(theta, f, var, l_all)
 % K = kernel(theta, l_all[:, None], l_all[None, :])
@@ -237,6 +252,13 @@ describing each object.
 We write a test log likelihood function that optimizes over the full pixel 
 and 3D label space in order to determine, for a particular object, which 
 combination of labels is most likely given the measured flux at that pixel.
+
+
+
+
+
+
+
 
 \section{Results: Comparison with Quadratic Model}
 
