@@ -13,9 +13,6 @@ from itertools import product
 import scipy.optimize as op
 from multiprocessing import Pool
 
-LARGE = 100.
-SMALL = 1. / LARGE
-
 ##### READ IN APOGEE SPECTRA #####
 
 f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
