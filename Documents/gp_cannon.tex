@@ -76,10 +76,10 @@ techniques: spectroscopic}
 
 \section{Introduction}
 
-\tc is a data-driven method for determining stellar labels (parameters and 
+\tc\ is a data-driven method for determining stellar labels (parameters and 
 abundances) from stellar
 spectra in the context of vast spectroscopic surveys. Arguably the most
-exciting long-term prospect of \tc is its potential to bring qualitatively
+exciting long-term prospect of \tc\ is its potential to bring qualitatively
 different stellar surveys onto a consistent stellar parameter and chemical
 abundance scale, given a set of reference objects observed in common between
 the surveys. In the current framework, a model is fit for that describes
@@ -228,7 +228,7 @@ In a nutshell, we optimize by maximizing the log marginal likelihood for a
 single pixel across all objects. The mathematics of how to do so is laid out 
 below\ldots
 
-The marginal likelihood p(g|X) is the integral of the likelihood times the
+The marginal likelihood $p(g|X)$ is the integral of the likelihood times the
 prior. It refers to the marginalization over the function values g.  
 
 \begin{equation}
@@ -243,32 +243,40 @@ For the special case of a Gaussian process model, we have that
   -\frac{1}{2} \textbf{f}^{T}\,\Sigma^{-1}\,\textbf{f}-\frac{1}{2}\ln{|\Sigma|}
 \end{equation}
 
-Computationally, 
+In practice, inverting the covariance matrix is computationally challenging.
+It is faster and numerically more stable to avoid directly inverting the 
+matrix: here, we use Cholesky decomposition and the associated routines
+in the scipy linear algebra package. 
 
-For computational tractability, we evaluate $\Sigma^{-1}$ using 
-
-\begin{equation}
-  \ln{p}(f_{n \lambda} | \theta_\lambda) = 
-  -\frac{1}{2} \textbf{f}_{\lambda}^T \alpha - \sum_i \ln{L_{ii}}
-\end{equation}
-
-where
+In Cholesky decomposition, we decompose the covariance matrix as follows:
 
 \begin{equation}
   \Sigma = L^T L  
-  \label{<++>}
+  \label{}
 \end{equation}
 
-and $\Sigma$ is that covariance matrix. 
+where L is called the Cholesky factor. We also introduce $\alpha$, 
 
-% (L, flag), alpha = compute_l_and_alpha(theta, f, var, l_all)
-% K = kernel(theta, l_all[:, None], l_all[None, :])
-% add in the uncertainties from the flux to the kernel
-% K[np.diag_indices_from(K)] += var
-% L, flag = cho_factor(K, overwrite_a=True)
+\begin{equation}
+  \Sigma \, \alpha = \textbf{f}
+  \label{}
+\end{equation}
 
-% lndet = np.sum(np.log(np.diag(L)))
-% ln_likelihood = -0.5*np.dot(f, alpha)-lndet
+such that the expression for the log likelihood can be written as follows:
+
+\begin{equation}
+  \ln{p}(\textbf{f} | \theta, X) = 
+  -\frac{1}{2} \textbf{f}^T \alpha - \sum_i \ln{L_{ii}}
+\end{equation}
+
+We use the scipy optimize routine to find, for each pixel, the set of
+hyperparameters (in this case, five) that maximize the log likelihood. 
+In other words, we're looking for the hyperparameters that make it most likely
+that this set of flux value and training label values would be measured.
+
+Once we have those hyperparameters, the training step is over: we now have
+a Gaussian Process model at each pixel of the spectrum. 
+
 
 \section{\emph{The Cannon} Test Step in the Gaussian Process Framework}
 
@@ -277,24 +285,60 @@ hyperparameters across objects at each pixel independently, the test step
 will take place across object space, optimizing for labels across pixels at 
 each object independently.
 
-Now, we have a set of $(n_{obj}, n_{l})$ hyperparameters where $n_{obj}$ is 
-the number of training objects and $n_{l}$ is the number of training labels 
+Now, we have a set of $(N_{ref}, K)$ hyperparameters where $N_{ref}$ is 
+the number of training objects and $K$ is the number of training labels 
 describing each object.
 
-We write a test log likelihood function that optimizes over the full pixel 
+
+In the end, we get a mean function and a variance function. 
+
+We have a vector of covariances between the test point and the training 
+points. Denote this $\Sigma(X,X_*)$. Then the mean function is
+
+\begin{equation}
+  \bar{g}_* = \Sigma(X_*, X)\,\Sigma(X, X)^{-1}\,f
+  \label{}
+\end{equation}
+
+which, in the $\alpha$ and $L$ framework we adopt for computational
+tractability, is
+
+\begin{equation}
+  \bar{g}_* = \Sigma(X, X_*)\,\alpha
+  \label{}
+\end{equation}
+
+and the covariance array corresponding to the Gaussian process model is
+
+\begin{equation}
+  \sigma_* = \Sigma(X_*, X_*)-\Sigma(X_*,X)\,\Sigma(X,X)^{-1}\,K(X,X_*)
+  \label{}
+\end{equation}
+
+in our computational tractability framework:
+
+\begin{equation}
+  \sigma_* = \sigma_f + kernel(theta, label, label) - K(X,X_*) \alpha K_*[0]
+  \label{}
+\end{equation}
+
+Now that we have both the mean and variance function, 
+we can write a test log likelihood function that optimizes over the full pixel
 and 3D label space in order to determine, for a particular object, which 
 combination of labels is most likely given the measured flux at that pixel.
 
+\begin{equation}
+  \ln{p(f|l)} = -\frac{1}{2} \frac{(f-\bar{g}_*)^2}{\sigma_*^2} - \ln{\sigma_*^2}
+  \label{}
+\end{equation}
 
-
-
-
-
-
+We perform the optimization for each object individually, across all pixels,
+using the scipy.optimize minimize routine. 
 
 \section{Results: Comparison with Quadratic Model}
 
 Hopefully we find that it's a hell of a lot better!
+
 
 \section{Discussion}
 
@@ -302,8 +346,14 @@ One challenge is the computational time. Much slower than simply choosing
 a quadratic model. Whereas that took this much time, the training steps scales 
 with the cube of the number of training objects. In this case, it took 20 
 hours on a 4-core processor, with the operations running in parallel (all 
-pixels are independent.) Similarly, labels for the test objects can be 
+pixels are independent.) 
+
+Labels for the test objects can also be 
 evaluated in parallel, and the test step took X hours on a 4-core processor. 
+The matrix inversion is the time-consuming step, but as you can see from this
+equation, this step only depends on the training set: thus, we can evalute
+this for each pixel only once, before performing the optimization for each 
+pixel. 
 
 \section{Acknowledgements}
 
