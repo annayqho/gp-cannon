@@ -49,10 +49,10 @@ For a ``training set'' of stars with known labels, \tc\ fits for a spectral
 model that describes how the flux in each pixel of the spectrum depends on the 
 labels of the star. The model is then applied to the rest of the stars in the 
 survey to solve for their labels. 
-In the first iteration of \tc\ (Ness et al. 2015) the functional form of the 
+In the first iteration of \tc\ \ref{ness2015} the functional form of the 
 spectral model was determined through empirical experimentation and held fixed
 across the spectrum: only the coefficients varied between pixels. 
-This constitutes a severe limitation: the functional form of the model is too 
+This constituted a severe limitation: the functional form of the model was too 
 flexible for some pixels 
 not flexible enough for others. In this paper, we cast \tc\ into the framework
 of a Gaussian Process. In this framework, instead of optimizing for 
@@ -77,17 +77,16 @@ techniques: spectroscopic}
 \section{Introduction}
 
 \tc\ is a data-driven method for determining stellar labels (parameters and 
-abundances) from stellar
-spectra in the context of vast spectroscopic surveys. Arguably the most
-exciting long-term prospect of \tc\ is its potential to bring qualitatively
-different stellar surveys onto a consistent stellar parameter and chemical
-abundance scale, given a set of reference objects observed in common between
-the surveys. In the current framework, a model is fit for that describes
-how the flux in each pixel of a continuum-normalized spectrum depends
-on the labels of the star.
+abundances) from stellar spectra in the context of vast spectroscopic surveys. 
+For a ``training set'' of stars with known labels, \tc\ fits for a spectral 
+model that describes how the flux in each pixel of the spectrum depends on the 
+labels of the star. The model is then applied to the rest of the stars in the 
+survey to solve for their labels. 
+In the first iteration of \tc\ \ref{ness2015} the functional form of the 
+spectral model was determined through empirical experimentation and held fixed
+across the spectrum: only the coefficients varied between pixels. 
 
-A major limitation of this existing framework is that the functional form of 
-the model is restricted to being the same for each pixel. We took the 
+More specifically, we took the 
 spectral model to be characterized by a coefficient vector $\theta_\lambda$ 
 that allowed us to predict the flux at every pixel $f_{n \lambda}$ for a 
 given label vector $\textbf{l}_n$:
@@ -100,8 +99,8 @@ given label vector $\textbf{l}_n$:
   f_{n\lambda} = \set{\theta}_\lambda^T \cdot \starlabelvec_n + \mbox{noise}  
 \end{equation}
 
-In this case, we optimize for coefficients of a model that is quadratic in the
-labels, such that the label vector is,
+In this case, we optimized for coefficients of a model that was quadratic in the
+labels, such that the label vector was,
 
 \begin{equation}
   \starlabelvec_n \equiv 
@@ -111,62 +110,56 @@ labels, such that the label vector is,
 A major limitation of this existing framework is that the model is inflexible:
 although a set of coefficients is uniquely determined for each pixel, 
 the functional form of the model itself is held fixed across pixels. 
-This is, however, not physically motivated.  Different pixels should have 
+This, however, is not physically motivated. Indeed, the
+polynomial family is probably not the best family of functions to be 
+exploring, since they extrapolate badly (edge effects) and require explicit, 
+qualitative choices about order and cross-terms. In that paper, we mentioned 
+the hope to eventually move to a non-parametric form for the functions, 
+such that model complexity would be controlled by continuous parameters
+and at each pixel the functional form would only be complex as warranted
+by the training data.
+
+To give a more specific example, different pixels should have 
 different functional dependencies on labels: for example, one might expect a 
 continuum pixel to be linear, while a pixel in a magnesium line should show 
 polynomial (?) dependence on temperature. In particular, absorption features,
 particularly strong lines, are known to vary non-linearly as a function of 
-stellar labels. Systematic discrepencies were found. Previously, we had to 
-settle on a suitable functional form for the spectral model. Now, we don't have
-to settle on a functional form: we allow the fitting process to optimize and
-identify the functional form in a data-driven way.
+stellar labels. And, indeed, in the paper, systematic discrepencies were found. 
 
-We needed to pick a functional form for the spectral model, which we did
-through empirical experimentation with a particular dataset. Indeed, the
-polynomial family is probably not the best family of functions to be 
-exploring, since they extrapolate badly (edge effects) and require explicit, 
-qualitative choices about order and cross-terms. In that paper, we mentioned 
-the hope to eventually move to a non-parametric form for the functions, such 
-as Gaussian Processes. In this case, model complexity would be controlled by 
-continuous parameters and the functional form would become very complex at 
-the pixels where the data in the training step warrant it.
+Extending \emph{The Cannon} to a Gaussian process framework is one way of 
+allowing the training data to determine the functional form and complexity
+of the model at each pixel. We now provide a brief introduction to Gaussian
+Processes: an excellent, more detailed review can be found here and here. 
 
-Extending \emph{The Cannon} to a Gaussian process framework entails fitting 
-for a Gaussian process model at every pixel, which actually means optimizing 
-for the \emph{functional form} of the model at every pixel instead of simply 
-optimizing for parameters that specify one functional form.
+A Gaussian Process is a probability distribution over functions. More
+precisely, it is a collection of random variables, any finite number of which
+have a joint Gaussian distribution. 
+It is an example of a stochastic process: the generalization
+of a probability distribution (which describes a finite-dimensional random
+variable) to function space. Using some set of finite training data, our goal
+is to solve for a function that can make a predictions for all possible
+input values: this is regression, input-output mapping (learning) for 
+continuous inputs. This is a problem of induction: moving from points you
+know to points you don't know. It basically entails doing inference in 
+function space. 
 
-Learning a function from examples. Stochastic processes: the generalization 
-of a probability distribution (a finite-dimensional random variable) to 
-functions. Regression: input-output mapping (learning) for continuous inputs. 
-It's an inductive problem: you want to move from points you know, to points 
-you don't know\ldotsfrom finite training data to a function that makes 
-predictions for all possible input values.
-
-Obviously you have to make some assumptions about the characteristics of the 
-underlying function. What you do is: assign a prior probability to every 
-possible function (essentially, you specify a probability distribution over 
-functions themselves) The key is: if you consider such a stochastic process 
-function (i.e. a function governed by a Gaussian distribution\ldots) then if 
-you only work with its values at a finite number of points, you'll get the 
-same answer as if you were dealing with all of the points.
-
-So, one big bonus is computational tractability.
-
-You begin with a prior distribution on the functions. And at the end you get 
+In order to fit for the function, you need to begin by making some assumptions 
+about the characteristics of the 
+underlying function. This entails assigning a prior probability to every 
+possible function, essentially specifying a probability distribution over
+the functions themselves, by specifying a mean and covariance function. 
+This is a prior distribution over the functions.
+It turns out that you only need to deal with
+some of the points in a function governed by a Gaussian distribution in order
+to get the answer that you would if you had access to all of the points. 
+This computational tractability is a big bonus of Gaussian processes. 
+And at the end you get 
 a mean prediction and a posterior distribution.
 
-Basically, you do inference directly in function space.
-
-A Gaussian Process IS a distribution over functions. The distribution is 
-specified by the covariance function. More formally, a Gaussian Process 
-is a collection of random variables, any finite number of which have a 
-joint Gaussian distribution.
-
-A Gaussian Process is completely specified by a mean function and covariance 
-function.
-
-We still have a training step and a test step. Below we walk through what it 
+The basic structure of \tc\ remains unchanged: we still have a training step
+in which we use a set of training objects to fit for a model, and then a test
+step in which we apply that model to solve for labels of the test objects. 
+Below we walk through what it 
 means to cast each step into the Gaussian Process framework.
 
 \section{\emph{The Cannon} Training Step in the Gaussian Process Framework}
@@ -315,10 +308,12 @@ and the covariance array corresponding to the Gaussian process model is
   \label{}
 \end{equation}
 
-in our computational tractability framework:
+For some reason, that first term is actually just 
+$\Sigma(X_*, X_*) = a^2 + \sigma$ where $\sigma$ here is the uncertainties
+in the fluxes in the data. 
 
 \begin{equation}
-  \sigma_* = \sigma_f + kernel(theta, label, label) - K(X,X_*) \alpha K_*[0]
+  \sigma_* = \sigma_f + a^2 - \Sigma(X_*,X) (L^T)^{-1}L^{-1} K_*[0]
   \label{}
 \end{equation}
 
@@ -337,14 +332,12 @@ using the scipy.optimize minimize routine.
 
 \section{Results: Comparison with Quadratic Model}
 
-Hopefully we find that it's a hell of a lot better!
-
-
 \section{Discussion}
 
 One challenge is the computational time. Much slower than simply choosing 
-a quadratic model. Whereas that took this much time, the training steps scales 
-with the cube of the number of training objects. In this case, it took 20 
+a quadratic model. The training steps scales 
+with the cube of the number of training objects. In this case, with 544 
+training objects, it took 20 
 hours on a 4-core processor, with the operations running in parallel (all 
 pixels are independent.) 
 
@@ -364,9 +357,16 @@ The research has received funding from the European Research Council under the
 European Union's Seventh Framework Programme (FP 7) ERC Grant Agreement n.
 [321035].
 
-%\begin{thebibliography}{24}
+\begin{thebibliography}{24}
 
-%\end{thebibliography}
+  \bibitem[{ {Ness}{ et~al.}(2015){Ness}, {Hogg}, {Rix}, {Ho}, \&
+    {Zasowski}}]{ness2015}
+    {Ness}, M., {Hogg}, D.W., {Rix}, H.-W., {Ho}, A.Y.Q., \& {Zasowski}, G. 2015
+
+  \bibitem[{ {Rasmussen}{et~al.}(2006){Rasmussen}, \& {Williams}}]{rasmussen2006}
+    {Rasmussen}, C.E., {Williams}, C.K.I. 2006
+
+\end{thebibliography}
 
 \end{document}
 
