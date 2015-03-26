@@ -94,16 +94,18 @@ def test_ln_likelihood_single_pix(label, flux, flux_var, theta, (L,flag), alpha,
     return -0.5 * ((flux - f_star) ** 2 / pred_var + np.log(pred_var))
 
 
-def test_ln_likelihood(label, f, var, theta_all, f_all, var_all, l_all):
+def test_ln_likelihood(label, kernels, f, var, theta_all, f_all, var_all, l_all):
     #print(label)
-    npix = len(f)
-    npix = 10 
+    npix = len(kernels)
     ln_likelihoods = np.zeros(npix)
-    for pix in range(100,npix):
-        (L,flag), alpha = compute_l_and_alpha(
-                theta_all[pix,:], f_all[:,pix], var_all[:,pix], l_all)
+    for pix in range(0,npix):
+        print("pix %s" %pix)
+        # NO: you should only do this once for each pixel, not every time
+        # this function is called!!!
+        (L,flag),alpha = kernels[pix]
         ln_likelihoods[pix] = test_ln_likelihood_single_pix(
                 label, f[pix], var[pix], theta_all[pix], (L,flag), alpha, l_all)
+    print(sum(ln_likelihoods))
     return sum(ln_likelihoods)
 
 
@@ -138,15 +140,17 @@ def infer_labels_single_pix(pix, best_hyperparams, f_all, var_all, l_all):
     return output.x
 
 
-def infer_labels_single_obj(obj, hyperparams_all, f_all, var_all, l_all):
+def infer_labels_single_obj(obj, kernels, hyperparams_all, f_all, var_all, l_all):
+    print("test step for object %s" %obj)
     f = f_all[obj,:]
     var = var_all[obj,:]
     # l = l_all[obj,:]
     tll = lambda labels: -test_ln_likelihood(
-            labels, f, var, hyperparams_all, f_all, var_all, l_all)
+          labels, kernels, f, var, hyperparams_all, f_all, var_all, l_all)
     p0 = np.array([np.mean(l_all[:,i]) for i in range(l_all.shape[1])])
     #p0 = l_all[obj,:]
     bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # training set dist
+
     print("fitting for labels")
     output = op.minimize(tll, p0, method="L-BFGS-B", bounds=bounds)
     return output
@@ -165,6 +169,7 @@ if not os.path.exists(hyperfn):
     # t_s_p = lambda args: train_single_pix(l_all, *args)
     # (remember to change train_single_pix function)
     best_hyperparams_all = pool.map(train_single_pix, zip(f_all.T, var_all.T))
+    best_hyperparams_all = np.array(best_hyperparams_all)
 
     # Brani's fix:
     # pack parameters
@@ -176,18 +181,37 @@ if not os.path.exists(hyperfn):
 
     # t_s_p = lambda f, var: train_single_pix(f, var, l_all)
     # best_hyperparams_all = p.map(t_s_p, f_all.T, var_all.T)
-    # pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
+    pickle.dump(best_hyperparams_all, open(hyperfn, "wb"), -1)
 
 else:
     print("loading")
-    best_hyperparams = pickle.load(open(hyperfn, "r"))
+    best_hyperparams_all = pickle.load(open(hyperfn, "r"))
 
 
 ##### TEST STEP #####
 
 # Now optimize over the test label space
+
+# kernel calculation for each pixel
+npix = best_hyperparams_all.shape[0]
+kernels = []
+
+# maybe just one pixel?
+pix = 1383
+(L,flag), alpha = compute_l_and_alpha(best_hyperparams_all[pix,:], f_all[:,pix],
+        var_all[:,pix], l_all)
+kernels = [[(L,flag),alpha]]
+obj = 10 
+labels = infer_labels_single_obj(obj, kernels, best_hyperparams_all, f_all, ivar_all, l_all)
+
+# for pix in range(0,10):
+#     print("pix %s" %pix)
+#     (L,flag), alpha = compute_l_and_alpha(
+#             best_hyperparams_all[pix,:], f_all[:,pix], var_all[:,pix], l_all)
+#     kernels.append([(L,flag),alpha])
+
 # obj = 0
-# print(infer_labels_single_obj(obj, best_hyperparams, f_all, ivar_all, l_all))
+# infer_labels_single_obj(obj, kernels, best_hyperparams_all, f_all, ivar_all, l_all)
 
 
 # axis = 2 
