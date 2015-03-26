@@ -13,7 +13,7 @@ from itertools import product
 import scipy.optimize as op
 from multiprocessing import Pool
 
-##### READ IN APOGEE SPECTRA #####
+##### READ IN NORMALIZED APOGEE SPECTRA #####
 
 f_all = pickle.load(open("data/norm_tr_fluxes.p", "r"))
 l_all = pickle.load(open("data/tr_label_vals.p", "r"))
@@ -23,6 +23,7 @@ ivar_all = pickle.load(open("data/norm_tr_ivars.p", "r"))
 keep = np.var(f_all, axis=0) > 0
 f_all = f_all[:,keep]
 ivar_all = ivar_all[:,keep]
+
 nobj = f_all.shape[0]
 npix = f_all.shape[1]
 
@@ -122,21 +123,6 @@ def train_single_pix(param):
     return best_hyperparams
 
 
-def infer_labels_single_pix(pix, best_hyperparams, f_all, var_all, l_all):
-    f, var, l = pick_good_obj(pix, f_all, ivar_all, l_all)
-    hyperparams = best_hyperparams[pix,:]
-    (L,flag), alpha = compute_l_and_alpha(hyperparams, f, var, l)
-    tll = lambda labels: -test_ln_likelihood(labels, f[obj], var[obj], 
-                                             hyperparams, (L,flag), alpha, l)
-    p0 = np.array([np.mean(l[:,i]) for i in range(l.shape[1])])
-    bounds = np.array([(3500,5500), (0,5), (-2.5,0.5)]) # training set dist
-
-    print("fitting for labels")
-    # want to minimize the negative log likelihood (maximize lnp)
-    output = op.minimize(tll, p0, method="L-BFGS-B", bounds=bounds)
-    return output.x
-
-
 def infer_labels_single_obj(obj, kernels, hyperparams_all, f_all, var_all, l_all):
     print("test step for object %s" %obj)
     f = f_all[obj,:]
@@ -164,7 +150,6 @@ if not os.path.exists(hyperfn):
 
     # Dan's fix:
     # t_s_p = lambda args: train_single_pix(l_all, *args)
-    # (remember to change train_single_pix function)
     best_hyperparams_all = pool.map(train_single_pix, zip(f_all.T, var_all.T))
     best_hyperparams_all = np.array(best_hyperparams_all)
 
