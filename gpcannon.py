@@ -80,6 +80,7 @@ def predictive_mean(theta, test_labels):
 # Evaluate the likelihood of a data point given model
 def test_ln_likelihood_single_pix(label, flux, flux_var, theta, (L,flag), alpha, l_all):
     # Calculate the mean prediction.
+    # covariance between test point and n training points
     K_star = kernel(theta, label[None,None,:], l_all[None,:,:], 
                     white_noise=False)
     f_star = np.dot(K_star, alpha)
@@ -100,7 +101,7 @@ def test_ln_likelihood(label, kernels, f, var, theta_all, f_all, var_all, l_all)
         print("pix %s" %pix)
         # NO: you should only do this once for each pixel, not every time
         # this function is called!!!
-        (L,flag),alpha = kernels[pix]
+        (L,flag), alpha = kernels[pix]
         ln_likelihoods[pix] = test_ln_likelihood_single_pix(
                 label, f[pix], var[pix], theta_all[pix], (L,flag), alpha, l_all)
     print(sum(ln_likelihoods))
@@ -182,15 +183,22 @@ kernels = []
 pix = 1383
 (L,flag), alpha = compute_l_and_alpha(best_hyperparams_all[pix,:], f_all[:,pix],
         var_all[:,pix], l_all)
-kernels = [[(L,flag),alpha]]
+kernels = [(L,flag), alpha]
 obj = 10 
-labels = infer_labels_single_obj(obj, kernels, best_hyperparams_all, f_all, ivar_all, l_all)
+labels = infer_labels_single_obj(obj, kernels, best_hyperparams_all, 
+        f_all, ivar_all, l_all)
 
-# for pix in range(0,10):
-#     print("pix %s" %pix)
-#     (L,flag), alpha = compute_l_and_alpha(
-#             best_hyperparams_all[pix,:], f_all[:,pix], var_all[:,pix], l_all)
-#     kernels.append([(L,flag),alpha])
+Ls = np.zeros((7212,544,544))
+flags = np.zeros(7212)
+alphas = np.zeros((7212,544))
+
+for pix in range(0,10):
+    print("pix %s" %pix)
+    (L,flag), alpha = compute_l_and_alpha(
+            best_hyperparams_all[pix,:], f_all[:,pix], var_all[:,pix], l_all)
+    Ls[pix,:,:] = L
+    flags[pix] = flag
+    alphas[pix,:] = alpha
 
 # obj = 0
 # infer_labels_single_obj(obj, kernels, best_hyperparams_all, f_all, ivar_all, l_all)
