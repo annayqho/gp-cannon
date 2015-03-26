@@ -174,15 +174,15 @@ means to cast each step into the Gaussian Process framework.
 For each pixel, we optimize for a set of five hyperparameters that fully 
 describe the covariance matrix that characterizes the Gaussian process model.
 
-We must begin by selecting the functional form of the covariance between any 
-two outputs (in this case, between any two flux values in a spectrum, across 
-the label space). We choose a squared exponential covariance function. 
+We begin by selecting the functional form of the covariance between any 
+two outputs (in this case, between the flux value at a given pixel for any
+two objects, across
+label space). We choose a squared exponential covariance function. 
 
 For a set of $N_{ref}$ reference objects $n_1, n_2, \dots, n_{N_{ref}}$, 
 each has a continuum-normalized
-flux measurement $f_{n \lambda}$ at wavelength $\lambda$. 
-
-Each training star has $K$ labels $l_{nk}$ 
+flux measurement $f_{n \lambda}$ at wavelength $\lambda$ and a set of  
+$K$ training labels $l_{nk}$ 
 Say we have a set of $N_{ref}$ training objects, each with $k$ training labels 
 $l = l_{nk_1}, l_{nk_2}, \cdots, l_{nk_K}$.
 
@@ -194,6 +194,15 @@ $ f_{n_i \lambda}$ and $f_{n_j \lambda}$ across label space is:
   Cov(f_{n_i \lambda}, f_{n_j \lambda}) = 
   a_\lambda^2 \exp(-\frac{1}{2} 
   \sum_{k=1}^K \frac{(l_{n_i k}-l_{n_j k})^2}{\tau_{\lambda k}^2}) +
+  \delta_{ij} s_\lambda^2
+\end{equation}
+
+More compactly, the covariance matrix $\Sigma$ can be written as follows:
+
+\begin{equation}
+  \Sigma_{ij} = 
+  a_\lambda^2 \exp(-\frac{1}{2} 
+  \sum_{k=1}^K \frac{(l_{i k}-l_{j k})^2}{\tau_{\lambda k}^2}) +
   \delta_{ij} s_\lambda^2
 \end{equation}
 
@@ -219,15 +228,38 @@ In a nutshell, we optimize by maximizing the log marginal likelihood for a
 single pixel across all objects. The mathematics of how to do so is laid out 
 below\ldots
 
-The log marginal likelihood is
+The marginal likelihood p(g|X) is the integral of the likelihood times the
+prior. It refers to the marginalization over the function values g.  
 
 \begin{equation}
-  \ln{p}(f_{n \lambda} | \theta_\lambda) = \sum \ln{L_{ii}}
+  p(f|X) = \int p(f|g,X) p(g|X)dg
+  \label{}
+\end{equation}
+
+For the special case of a Gaussian process model, we have that 
+
+\begin{equation}
+  \ln{p}(\textbf{f} | \theta, X) = 
+  -\frac{1}{2} \textbf{f}^{T}\,\Sigma^{-1}\,\textbf{f}-\frac{1}{2}\ln{|\Sigma|}
+\end{equation}
+
+Computationally, 
+
+For computational tractability, we evaluate $\Sigma^{-1}$ using 
+
+\begin{equation}
+  \ln{p}(f_{n \lambda} | \theta_\lambda) = 
+  -\frac{1}{2} \textbf{f}_{\lambda}^T \alpha - \sum_i \ln{L_{ii}}
 \end{equation}
 
 where
 
-\beq
+\begin{equation}
+  \Sigma = L^T L  
+  \label{<++>}
+\end{equation}
+
+and $\Sigma$ is that covariance matrix. 
 
 % (L, flag), alpha = compute_l_and_alpha(theta, f, var, l_all)
 % K = kernel(theta, l_all[:, None], l_all[None, :])
